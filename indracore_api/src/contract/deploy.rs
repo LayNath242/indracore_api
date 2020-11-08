@@ -1,8 +1,9 @@
-
+use crate::primitives;
 use std::path::PathBuf;
-use primitives;
 
-pub struct ConractDeploy {
+pub struct ContractDeploy {
     pub wasm_path: PathBuf,
     pub signer: primitives::Signer,
 }
+
+impl ConractDeploy {}

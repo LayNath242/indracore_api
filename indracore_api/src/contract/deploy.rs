@@ -44,3 +44,29 @@ impl ContractDeploy {
         })
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::contract::deploy::ContractDeploy;
+    use crate::keyring::parse_code_hash;
+    use sp_keyring::AccountKeyring;
+    use std::path::PathBuf;
+    use substrate_subxt::{sp_core::sr25519::Pair, IndracoreNodeRuntime, PairSigner};
+
+    #[test]
+    fn test_deploy() {
+        let mut wasm_path = PathBuf::new();
+        wasm_path.push("/data/project/cr/template/erc20/target/erc20.wasm");
+        let pair = AccountKeyring::Alice.pair();
+
+        let signer = PairSigner::<IndracoreNodeRuntime, Pair>::new(pair);
+
+        let deploy = ContractDeploy { wasm_path, signer };
+        let result = deploy.exec().unwrap();
+
+        let ch =
+            parse_code_hash("0x40f8c7c624d1d8fbd0873a381c63a0858b4d75315bd8ca62e0111068bbf138e3");
+
+        assert_eq!(result, ch.unwrap());
+    }
+}

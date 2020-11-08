@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    # "indracore_api",
     "subxt"
 ]
 

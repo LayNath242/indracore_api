@@ -1,3 +1,4 @@
+pub mod deploy;
 mod transcode;
 
 use anyhow::Result;

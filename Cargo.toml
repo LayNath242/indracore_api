@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "subxt"
+    "test_api"
 ]
 
 [profile.release]

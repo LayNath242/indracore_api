@@ -1,14 +1,24 @@
 [package]
-name = "indracore_api"
+name = "indracore-api"
 version = "2.0.0"
 authors = ["Selendra <info@selendra.org>"]
 edition = "2018"
-build = "build.rs"
 license = "Apache-2.0"
 homepage = "https://selendra.org"
 repository = "https://github.com/selendra/indracore"
 
-[package.metadata.docs.rs]
-targets = ["x86_64-unknown-linux-gnu"]
-
 [dependencies]
+ink_metadata = { version = "3.0.0-rc2" }
+scale = { package = "parity-scale-codec", version = "1.3.4" }
+sp-core = { git = "https://github.com/selendra/indracore", branch = "main",  version = "2.0.0", package = "sp-core" }
+
+scale-info = { version = "0.4", default-features = false, features = ["derive"]}
+
+itertools = { version = "0.9.0" }
+escape8259 = { version = "0.5.0"}
+indexmap = { version = "1.6.0" }
+nom = { version = "5.1.2" }
+hex = { version = "0.4.2" }
+thiserror = "1.0.20"
+anyhow = "1.0.32"
+log = "0.4.11"

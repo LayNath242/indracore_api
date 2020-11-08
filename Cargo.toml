@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    # "indracore_api",
+    "subxt"
+]
+
+[profile.release]
+panic = "unwind"

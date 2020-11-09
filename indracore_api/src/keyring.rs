@@ -1,9 +1,34 @@
 use crate::primitives;
 use substrate_subxt::{
     sp_core::{ed25519, sr25519, Pair as TraitPair},
+    sp_runtime,
     system::System,
     Error, IndracoreNodeRuntime, PairSigner,
 };
+
+use std::str::FromStr;
+
+pub struct PublicId {
+    pubkey: String,
+}
+
+impl PublicId {
+    pub fn indracoreid(&self) -> Result<primitives::IndracoreId, Error> {
+        let id = sp_runtime::AccountId32::from_str(&self.pubkey);
+        match id {
+            Ok(id) => Ok(pallet_indices::address::Address::from(id)),
+            Err(e) => return Err(Error::Other(e.into())),
+        }
+    }
+
+    pub fn accounid32(&self) -> Result<sp_core::crypto::AccountId32, Error> {
+        let id = sp_runtime::AccountId32::from_str(&self.pubkey);
+        match id {
+            Ok(id) => Ok(id),
+            Err(e) => return Err(Error::Other(e.into())),
+        }
+    }
+}
 
 #[derive(PartialEq)]
 pub struct Sr25519 {
@@ -69,7 +94,7 @@ pub fn parse_code_hash(
 
 #[cfg(test)]
 mod test {
-    use crate::keyring::{parse_code_hash, Ed25519, Sr25519};
+    use crate::keyring::{parse_code_hash, Ed25519, PublicId, Sr25519};
     #[test]
     fn test_sr25519() {
         let sig = Sr25519 {
@@ -100,5 +125,15 @@ mod test {
             parse_code_hash("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d")
                 .is_ok()
         )
+    }
+
+    #[test]
+    fn test_id() {
+        let id = PublicId {
+            pubkey: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY".into(),
+        };
+
+        assert!(id.indracoreid().is_ok());
+        assert!(id.accounid32().is_ok())
     }
 }

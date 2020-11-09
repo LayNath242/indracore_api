@@ -1,3 +1,4 @@
+pub mod call;
 pub mod deploy;
 pub mod instantiate;
 mod transcode;

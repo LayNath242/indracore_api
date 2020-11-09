@@ -8,7 +8,7 @@ pub struct ContractDeploy {
 use substrate_subxt::{contracts::*, ClientBuilder, Error, IndracoreNodeRuntime};
 
 impl ContractDeploy {
-    pub fn load_contract(&self) -> Result<Vec<u8>, Error> {
+    fn load_contract(&self) -> Result<Vec<u8>, Error> {
         let contract_wasm_path = self.wasm_path.clone();
         let mut data: Vec<u8> = Vec::new();
 

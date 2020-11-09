@@ -75,7 +75,8 @@ mod test {
         let sig = Sr25519 {
             suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
         };
-        assert!(sig.pair(None).is_ok())
+        assert!(sig.pair(None).is_ok());
+        assert!(sig.to_accountid().is_ok())
     }
     #[test]
     fn test_ed25519() {
@@ -83,7 +84,8 @@ mod test {
             suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
         };
 
-        assert!(sig.pair(None).is_ok())
+        assert!(sig.pair(None).is_ok());
+        assert!(sig.to_accountid().is_ok())
     }
 
     #[test]

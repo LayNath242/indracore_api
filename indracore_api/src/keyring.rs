@@ -5,6 +5,7 @@ use substrate_subxt::{
     Error, IndracoreNodeRuntime, PairSigner,
 };
 
+#[derive(PartialEq)]
 pub struct Sr25519 {
     pub suri: String,
 }
@@ -27,6 +28,7 @@ impl Sr25519 {
     }
 }
 
+#[derive(PartialEq)]
 pub struct Ed25519 {
     pub suri: String,
 }
@@ -73,27 +75,15 @@ mod test {
         let sig = Sr25519 {
             suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
         };
-        sig.pair(None).unwrap();
+        assert!(sig.pair(None).is_ok())
     }
     #[test]
     fn test_ed25519() {
         let sig = Ed25519 {
             suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
         };
-        sig.pair(None).unwrap();
-    }
-    #[test]
-    fn test_eq_sr25529_ed25519() {
-        let sr = Sr25519 {
-            suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
-        };
-        let sr = sr.pair(None).unwrap();
 
-        let ed = Ed25519 {
-            suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
-        };
-        let ed = ed.pair(None).unwrap();
-        assert_eq!(sr, ed)
+        assert!(sig.pair(None).is_ok())
     }
 
     #[test]

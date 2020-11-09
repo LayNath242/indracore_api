@@ -3,7 +3,7 @@ use std::{fs, io::Read, path::PathBuf};
 
 pub struct ContractDeploy {
     pub wasm_path: PathBuf,
-    pub signer: primitives::Signer,
+    pub signer: primitives::Sr25519,
 }
 use substrate_subxt::{contracts::*, ClientBuilder, Error, IndracoreNodeRuntime};
 
@@ -29,7 +29,7 @@ impl ContractDeploy {
 
         async_std::task::block_on(async move {
             let client = match ClientBuilder::<IndracoreNodeRuntime>::new()
-                .set_url("ws://127.0.0.1:9944")
+                .set_url(primitives::url())
                 .build()
                 .await
             {
@@ -56,7 +56,7 @@ mod test {
     #[test]
     fn test_deploy() {
         let mut wasm_path = PathBuf::new();
-        wasm_path.push("/data/project/cr/template/erc20/target/erc20.wasm");
+        wasm_path.push("/data/project/indracore-api/indracore_api/src/contract/test/erc20.wasm");
         let pair = AccountKeyring::Alice.pair();
 
         let signer = PairSigner::<IndracoreNodeRuntime, Pair>::new(pair);

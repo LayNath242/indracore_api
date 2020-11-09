@@ -1,20 +1,49 @@
 use crate::primitives;
 use substrate_subxt::{
-    sp_core::{sr25519::Pair, Pair as TraitPair},
+    sp_core::{ed25519, sr25519, Pair as TraitPair},
     system::System,
     Error, IndracoreNodeRuntime, PairSigner,
 };
 
-#[derive(Debug)]
-pub struct Signer {
-    pub mnemonic: String,
+pub struct Sr25519 {
+    pub suri: String,
 }
 
-impl Signer {
-    pub fn pair(&self, pass: Option<&str>) -> Result<primitives::Signer, Error> {
-        let pair = Pair::from_string(&self.mnemonic, pass);
+impl Sr25519 {
+    pub fn pair(&self, pass: Option<&str>) -> Result<primitives::Sr25519, Error> {
+        let pair = sr25519::Pair::from_string(&self.suri, pass);
         match pair {
-            Ok(p) => Ok(PairSigner::<IndracoreNodeRuntime, Pair>::new(p)),
+            Ok(p) => Ok(PairSigner::<IndracoreNodeRuntime, sr25519::Pair>::new(p)),
+            Err(_) => Err(Error::Other("Invalid account".into())),
+        }
+    }
+
+    pub fn to_accountid(&self) -> Result<sp_core::crypto::AccountId32, Error> {
+        let pair = sr25519::Pair::from_string(&self.suri, None);
+        match pair {
+            Ok(data) => Ok(sp_core::crypto::AccountId32::from(data.public())),
+            Err(_) => Err(Error::Other("Invalid account".into())),
+        }
+    }
+}
+
+pub struct Ed25519 {
+    pub suri: String,
+}
+
+impl Ed25519 {
+    pub fn pair(&self, pass: Option<&str>) -> Result<primitives::Ed25519, Error> {
+        let pair = ed25519::Pair::from_string(&self.suri, pass);
+        match pair {
+            Ok(p) => Ok(PairSigner::<IndracoreNodeRuntime, ed25519::Pair>::new(p)),
+            Err(e) => Err(Error::SecretString(e)),
+        }
+    }
+
+    pub fn to_accountid(&self) -> Result<sp_core::crypto::AccountId32, Error> {
+        let pair = ed25519::Pair::from_string(&self.suri, None);
+        match pair {
+            Ok(data) => Ok(sp_core::crypto::AccountId32::from(data.public())),
             Err(_) => Err(Error::Other("Invalid account".into())),
         }
     }
@@ -38,12 +67,11 @@ pub fn parse_code_hash(
 
 #[cfg(test)]
 mod test {
-    use crate::keyring::{parse_code_hash, Signer};
+    use crate::keyring::{parse_code_hash, Sr25519};
     #[test]
-    fn test_pait() {
-        let sig = Signer {
-            mnemonic: "mad deny visa vocal visa badge test cabbage draft base purchase general"
-                .into(),
+    fn test_sr25519() {
+        let sig = Sr25519 {
+            suri: "mad deny visa vocal visa badge test cabbage draft base purchase general".into(),
         };
         sig.pair(None).unwrap();
     }

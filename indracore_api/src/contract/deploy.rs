@@ -64,9 +64,9 @@ mod test {
         let deploy = ContractDeploy { wasm_path, signer };
         let result = deploy.exec().unwrap();
 
-        let ch =
+        let code_hash =
             parse_code_hash("0x40f8c7c624d1d8fbd0873a381c63a0858b4d75315bd8ca62e0111068bbf138e3");
 
-        assert_eq!(result, ch.unwrap());
+        assert_eq!(result, code_hash.unwrap());
     }
 }

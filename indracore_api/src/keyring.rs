@@ -67,14 +67,35 @@ pub fn parse_code_hash(
 
 #[cfg(test)]
 mod test {
-    use crate::keyring::{parse_code_hash, Sr25519};
+    use crate::keyring::{parse_code_hash, Ed25519, Sr25519};
     #[test]
     fn test_sr25519() {
         let sig = Sr25519 {
-            suri: "mad deny visa vocal visa badge test cabbage draft base purchase general".into(),
+            suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
         };
         sig.pair(None).unwrap();
     }
+    #[test]
+    fn test_ed25519() {
+        let sig = Ed25519 {
+            suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
+        };
+        sig.pair(None).unwrap();
+    }
+    #[test]
+    fn test_eq_sr25529_ed25519() {
+        let sr = Sr25519 {
+            suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
+        };
+        let sr = sr.pair(None).unwrap();
+
+        let ed = Ed25519 {
+            suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
+        };
+        let ed = ed.pair(None).unwrap();
+        assert_eq!(sr, ed)
+    }
+
     #[test]
     fn parse_code_hash_works() {
         // with 0x prefix

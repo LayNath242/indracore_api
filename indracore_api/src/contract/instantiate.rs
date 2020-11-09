@@ -30,7 +30,7 @@ impl Instantiate {
                 .build()
                 .await
             {
-                Ok(c) => c,
+                Ok(cli) => cli,
                 Err(e) => return Err(e),
             };
             let result = client
@@ -49,5 +49,37 @@ impl Instantiate {
 
             Ok(instantiated)
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::contract::instantiate::Instantiate;
+    use crate::keyring::parse_code_hash;
+    use sp_keyring::AccountKeyring;
+    use substrate_subxt::{sp_core::sr25519::Pair, IndracoreNodeRuntime, PairSigner};
+
+    #[test]
+    fn test_instantiated() {
+        let pair = AccountKeyring::Alice.pair();
+        let signer = PairSigner::<IndracoreNodeRuntime, Pair>::new(pair);
+        let code_hash =
+            parse_code_hash("0x40f8c7c624d1d8fbd0873a381c63a0858b4d75315bd8ca62e0111068bbf138e3");
+        let metadata =
+            "/data/project/indracore-api/indracore_api/src/contract/test/erc20.json".to_string();
+        let mut args: Vec<String> = Vec::new();
+        args.push("1_000_000_000".to_string());
+
+        let inst = Instantiate {
+            name: "new".to_string(),
+            args: args.clone(),
+            metadata,
+            signer,
+            code_hash: code_hash.unwrap(),
+            endowment: 1_000_000_000_000_000,
+            gas_limit: 500_000_000_000,
+        };
+
+        assert!(inst.instantiate().is_ok())
     }
 }

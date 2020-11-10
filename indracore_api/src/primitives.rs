@@ -6,9 +6,7 @@ use substrate_subxt::{
 
 pub type Sr25519 = PairSigner<IndracoreNodeRuntime, sr25519::Pair>;
 pub type Ed25519 = PairSigner<IndracoreNodeRuntime, ed25519::Pair>;
-
 pub type Client = substrate_subxt::Client<IndracoreNodeRuntime>;
-
 pub type IndracoreId = pallet_indices::address::Address<sp_core::crypto::AccountId32, u32>;
 
 pub fn url() -> String {

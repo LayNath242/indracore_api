@@ -76,7 +76,7 @@ impl Transcoder {
 
         let mut encoded = selector.to_bytes().to_vec();
         for (spec, arg) in spec_args.iter().zip(args) {
-            let value = scon::from_str(arg.as_ref())?;
+            let value = arg.as_ref().parse::<scon::Value>()?;
             encode_value(self.registry(), spec.ty().ty().id(), &value, &mut encoded)?;
         }
         Ok(encoded)

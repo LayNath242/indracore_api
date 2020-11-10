@@ -26,14 +26,8 @@ use std::{
     hash::{Hash, Hasher},
     iter::FromIterator,
     ops::{Index, IndexMut},
+    str::FromStr,
 };
-
-pub fn from_str<S>(s: S) -> Result<Value, nom::Err<parse::SonParseError>>
-where
-    S: AsRef<str>,
-{
-    parse::parse_value(s.as_ref())
-}
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Value {
@@ -46,7 +40,16 @@ pub enum Value {
     String(String),
     Seq(Seq),
     Bytes(Bytes),
+    Literal(String),
     Unit,
+}
+
+impl FromStr for Value {
+    type Err = nom::Err<parse::SonParseError>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse::parse_value(s)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -200,7 +203,7 @@ impl From<Vec<u8>> for Bytes {
 
 impl Bytes {
     pub fn from_hex_string(s: &str) -> Result<Self, hex::FromHexError> {
-        let bytes = hex::decode(s)?;
+        let bytes = crate::util::decode_hex(s)?;
         Ok(Self { bytes })
     }
 

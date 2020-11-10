@@ -19,14 +19,14 @@ use escape8259::unescape;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while1},
-    character::complete::{alphanumeric1, anychar, char, digit0, multispace0, one_of},
+    character::complete::{alphanumeric1, anychar, char, digit0, hex_digit1, multispace0, one_of},
     combinator::{map, map_res, opt, recognize, value, verify},
-    error::{ErrorKind, ParseError},
-    multi::{many0, many0_count, separated_list},
+    error::{ErrorKind, FromExternalError, ParseError},
+    multi::{many0, many0_count, many1, separated_list0},
     sequence::{delimited, pair, preceded, separated_pair, tuple},
     IResult,
 };
-use std::num::ParseIntError;
+use std::{fmt::Debug, num::ParseIntError};
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum SonParseError {
@@ -36,16 +36,22 @@ pub enum SonParseError {
     BadEscape,
     #[error("hex string parse error")]
     BadHex(#[from] hex::FromHexError),
-    #[error("unknown parser error")]
-    Unparseable,
+    #[error("parser error")]
+    Nom(String, ErrorKind),
 }
 
-impl<I> ParseError<I> for SonParseError {
-    fn from_error_kind(_input: I, _kind: ErrorKind) -> Self {
-        SonParseError::Unparseable
+impl<I> FromExternalError<I, ParseIntError> for SonParseError {
+    fn from_external_error(_input: I, _kind: ErrorKind, e: ParseIntError) -> Self {
+        e.into()
+    }
+}
+
+impl ParseError<&str> for SonParseError {
+    fn from_error_kind(input: &str, kind: ErrorKind) -> Self {
+        SonParseError::Nom(input.to_string(), kind)
     }
 
-    fn append(_: I, _: ErrorKind, other: Self) -> Self {
+    fn append(_: &str, _: ErrorKind, other: Self) -> Self {
         other
     }
 }
@@ -125,16 +131,8 @@ fn scon_integer(input: &str) -> IResult<&str, Value, SonParseError> {
     let signed = recognize(pair(char('-'), uint));
 
     alt((
-        map_res(signed, |s| {
-            s.parse::<i128>()
-                .map_err(SonParseError::BadInt)
-                .map(Value::Int)
-        }),
-        map_res(uint, |s| {
-            s.parse::<u128>()
-                .map_err(SonParseError::BadInt)
-                .map(Value::UInt)
-        }),
+        map_res(signed, |s| s.parse::<i128>().map(Value::Int)),
+        map_res(uint, |s| s.parse::<u128>().map(Value::UInt)),
     ))(input)
 }
 
@@ -160,7 +158,7 @@ fn scon_seq(input: &str) -> IResult<&str, Value, SonParseError> {
 
     let parser = delimited(
         ws(tag("[")),
-        separated_list(ws(tag(",")), scon_value),
+        separated_list0(ws(tag(",")), scon_value),
         opt_trailing_comma_close,
     );
     map(parser, |v| Value::Seq(v.into()))(input)
@@ -170,7 +168,7 @@ fn scon_tuple(input: &str) -> IResult<&str, Value, SonParseError> {
     let opt_trailing_comma_close = pair(opt(ws(tag(","))), ws(tag(")")));
     let tuple_body = delimited(
         ws(tag("(")),
-        separated_list(ws(tag(",")), scon_value),
+        separated_list0(ws(tag(",")), scon_value),
         opt_trailing_comma_close,
     );
 
@@ -200,7 +198,7 @@ fn scon_map(input: &str) -> IResult<&str, Value, SonParseError> {
     let opt_trailing_comma_close = pair(opt(ws(tag(","))), ws(closing));
     let map_body = delimited(
         ws(opening),
-        separated_list(ws(tag(",")), entry),
+        separated_list0(ws(tag(",")), entry),
         opt_trailing_comma_close,
     );
 
@@ -212,14 +210,20 @@ fn scon_map(input: &str) -> IResult<&str, Value, SonParseError> {
 }
 
 fn scon_bytes(input: &str) -> IResult<&str, Value, SonParseError> {
-    let (rest, byte_str) = preceded(tag("0x"), nom::character::complete::hex_digit1)(input)?;
+    let (rest, byte_str) = preceded(tag("0x"), hex_digit1)(input)?;
     let bytes = Bytes::from_hex_string(byte_str).map_err(|e| nom::Err::Failure(e.into()))?;
     Ok((rest, Value::Bytes(bytes)))
 }
 
-fn ws<F, I, O, E>(f: F) -> impl Fn(I) -> IResult<I, O, E>
+fn scon_literal(input: &str) -> IResult<&str, Value, SonParseError> {
+    // let parser = recognize(ws(many1(alphanumeric1)));
+    let parser = recognize(many1(alphanumeric1));
+    map(parser, |literal: &str| Value::Literal(literal.into()))(input)
+}
+
+fn ws<F, I, O, E>(f: F) -> impl FnMut(I) -> IResult<I, O, E>
 where
-    F: Fn(I) -> IResult<I, O, E>,
+    F: FnMut(I) -> IResult<I, O, E>,
     I: nom::InputTakeAtPosition,
     <I as nom::InputTakeAtPosition>::Item: nom::AsChar + Clone,
     E: nom::error::ParseError<I>,
@@ -239,6 +243,7 @@ fn scon_value(input: &str) -> IResult<&str, Value, SonParseError> {
         scon_bool,
         scon_char,
         scon_unit_tuple,
+        scon_literal,
     )))(input)
 }
 
@@ -246,4 +251,305 @@ fn scon_value(input: &str) -> IResult<&str, Value, SonParseError> {
 pub fn parse_value(input: &str) -> Result<Value, nom::Err<SonParseError>> {
     let (_, value) = scon_value(input)?;
     Ok(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_scon_value(input: &str, expected: Value) {
+        assert_eq!(scon_value(input), Ok(("", expected)));
+    }
+
+    #[test]
+    fn test_unit() {
+        assert_eq!(scon_value("()"), Ok(("", Value::Unit)));
+    }
+
+    #[test]
+    fn test_bool() {
+        assert_eq!(scon_bool("false"), Ok(("", Value::Bool(false))));
+        assert_eq!(scon_bool("true"), Ok(("", Value::Bool(true))));
+        assert!(scon_bool("foo").is_err());
+    }
+
+    #[test]
+    fn test_integer() {
+        assert_eq!(scon_integer("42"), Ok(("", Value::UInt(42))));
+        assert_eq!(scon_integer("-123"), Ok(("", Value::Int(-123))));
+        assert_eq!(scon_integer("0"), Ok(("", Value::UInt(0))));
+        assert_eq!(scon_integer("01"), Ok(("1", Value::UInt(0))));
+        assert_eq!(
+            scon_integer("340282366920938463463374607431768211455"),
+            Ok(("", Value::UInt(340282366920938463463374607431768211455)))
+        );
+        // todo
+        // assert!(matches!(scon_integer("abc123"), Err(nom::Err::Failure(RonParseError::BadInt(_)))));
+        // // assert!(matches!(scon_integer("340282366920938463463374607431768211455"), Err(nom::Err::Failure(_))));
+    }
+
+    #[test]
+    fn test_string() {
+        // Plain Unicode strings with no escaping
+        assert_eq!(scon_string(r#""""#), Ok(("", Value::String("".into()))));
+        assert_eq!(
+            scon_string(r#""Hello""#),
+            Ok(("", Value::String("Hello".into())))
+        );
+        assert_eq!(scon_string(r#""の""#), Ok(("", Value::String("の".into()))));
+        assert_eq!(scon_string(r#""𝄞""#), Ok(("", Value::String("𝄞".into()))));
+
+        // valid 2-character escapes
+        assert_eq!(
+            scon_string(r#""  \\  ""#),
+            Ok(("", Value::String("  \\  ".into())))
+        );
+        assert_eq!(
+            scon_string(r#""  \"  ""#),
+            Ok(("", Value::String("  \"  ".into())))
+        );
+
+        // valid 6-character escapes
+        assert_eq!(
+            scon_string(r#""\u0000""#),
+            Ok(("", Value::String("\x00".into())))
+        );
+        assert_eq!(
+            scon_string(r#""\u00DF""#),
+            Ok(("", Value::String("ß".into())))
+        );
+        assert_eq!(
+            scon_string(r#""\uD834\uDD1E""#),
+            Ok(("", Value::String("𝄞".into())))
+        );
+
+        // Invalid because surrogate characters must come in pairs
+        assert!(scon_string(r#""\ud800""#).is_err());
+        // Unknown 2-character escape
+        assert!(scon_string(r#""\x""#).is_err());
+        // Not enough hex digits
+        assert!(scon_string(r#""\u""#).is_err());
+        assert!(scon_string(r#""\u001""#).is_err());
+        // Naked control character
+        assert!(scon_string(r#""\x0a""#).is_err());
+        // Not a JSON string because it's not wrapped in quotes
+        assert!(scon_string("abc").is_err());
+        // An unterminated string (because the trailing quote is escaped)
+        assert!(scon_string(r#""\""#).is_err());
+
+        // Parses correctly but has escape errors due to incomplete surrogate pair.
+        assert_eq!(
+            scon_string(r#""\ud800""#),
+            Err(nom::Err::Failure(SonParseError::BadEscape))
+        );
+    }
+
+    #[test]
+    fn test_seq() {
+        assert_eq!(scon_value("[ ]"), Ok(("", Value::Seq(vec![].into()))));
+        assert_eq!(
+            scon_value("[ 1 ]"),
+            Ok(("", Value::Seq(vec![Value::UInt(1)].into())))
+        );
+
+        let expected = Value::Seq(vec![Value::UInt(1), Value::String("x".into())].into());
+        assert_eq!(scon_value(r#" [ 1 , "x" ] "#), Ok(("", expected)));
+
+        let trailing = r#"["a", "b",]"#;
+        assert_eq!(
+            scon_value(trailing),
+            Ok((
+                "",
+                Value::Seq(vec![Value::String("a".into()), Value::String("b".into())].into())
+            ))
+        );
+    }
+
+    #[test]
+    fn test_rust_ident() {
+        assert_eq!(rust_ident("a"), Ok(("", "a")));
+        assert_eq!(rust_ident("a:"), Ok((":", "a")));
+        assert_eq!(rust_ident("Ok"), Ok(("", "Ok")));
+        assert_eq!(rust_ident("_ok"), Ok(("", "_ok")));
+        assert_eq!(rust_ident("im_ok"), Ok(("", "im_ok")));
+        // assert_eq!(rust_ident("im_ok_"), Ok(("", "im_ok_"))); // todo
+        assert_eq!(rust_ident("im_ok_123abc"), Ok(("", "im_ok_123abc")));
+        assert!(rust_ident("1notok").is_err());
+    }
+
+    #[test]
+    fn test_literal() {
+        assert_scon_value(
+            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            Value::Literal("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY".into()),
+        );
+    }
+
+    #[test]
+    fn test_map() {
+        assert_eq!(
+            scon_value("Foo {}"),
+            Ok(("", Value::Map(Map::new(Some("Foo"), Default::default()))))
+        );
+        assert_eq!(
+            scon_value("Foo{}"),
+            Ok(("", Value::Map(Map::new(Some("Foo"), Default::default()))))
+        );
+
+        assert_eq!(rust_ident("a:"), Ok((":", "a")));
+
+        assert_eq!(
+            scon_value(r#"(a: 1)"#),
+            Ok((
+                "",
+                Value::Map(Map::new(
+                    None,
+                    vec![(Value::String("a".into()), Value::UInt(1)),]
+                        .into_iter()
+                        .collect()
+                ))
+            ))
+        );
+
+        assert_eq!(
+            scon_value(r#"A (a: 1, b: "bar")"#),
+            Ok((
+                "",
+                Value::Map(Map::new(
+                    Some("A"),
+                    vec![
+                        (Value::String("a".into()), Value::UInt(1)),
+                        (Value::String("b".into()), Value::String("bar".into())),
+                    ]
+                    .into_iter()
+                    .collect()
+                ))
+            ))
+        );
+
+        assert_eq!(
+            scon_value(r#"B(a: 1)"#),
+            Ok((
+                "",
+                Value::Map(Map::new(
+                    Some("B"),
+                    vec![(Value::String("a".into()), Value::UInt(1)),]
+                        .into_iter()
+                        .collect()
+                ))
+            ))
+        );
+
+        assert_eq!(
+            scon_value(r#"Struct { a : 1 }"#),
+            Ok((
+                "",
+                Value::Map(Map::new(
+                    Some("Struct"),
+                    vec![(Value::String("a".into()), Value::UInt(1)),]
+                        .into_iter()
+                        .collect()
+                ))
+            ))
+        );
+
+        let map = r#"Mixed {
+            1: "a",
+            "b": 2,
+            c: true,
+        }"#;
+
+        assert_eq!(
+            scon_value(map),
+            Ok((
+                "",
+                Value::Map(Map::new(
+                    Some("Struct"),
+                    vec![
+                        (Value::UInt(1), Value::String("a".into())),
+                        (Value::String("b".into()), Value::UInt(2)),
+                        (Value::String("c".into()), Value::Bool(true)),
+                        // (Value::String("d".into()), Value::Literal("5ALiteral".into())),
+                    ]
+                    .into_iter()
+                    .collect()
+                ))
+            ))
+        );
+    }
+
+    #[test]
+    fn test_tuple() {
+        assert_scon_value("Foo ()", Value::Tuple(Tuple::new(Some("Foo"), vec![])));
+        assert_scon_value("Foo()", Value::Tuple(Tuple::new(Some("Foo"), vec![])));
+        assert_scon_value("Foo", Value::Tuple(Tuple::new(Some("Foo"), vec![])));
+
+        assert_scon_value(
+            r#"B("a")"#,
+            Value::Tuple(Tuple::new(Some("B"), vec![Value::String("a".into())])),
+        );
+        assert_scon_value(
+            r#"B("a", 10, true)"#,
+            Value::Tuple(Tuple::new(
+                Some("B"),
+                vec![
+                    Value::String("a".into()),
+                    Value::UInt(10),
+                    Value::Bool(true),
+                ],
+            )),
+        );
+
+        assert_scon_value(
+            r#"Mixed ("a", 10, ["a", "b", "c"],)"#,
+            Value::Tuple(Tuple::new(
+                Some("Mixed"),
+                vec![
+                    Value::String("a".into()),
+                    Value::UInt(10),
+                    Value::Seq(
+                        vec![
+                            Value::String("a".into()),
+                            Value::String("b".into()),
+                            Value::String("c".into()),
+                        ]
+                        .into(),
+                    ),
+                ],
+            )),
+        );
+
+        assert_scon_value(
+            r#"(Nested("a", 10))"#,
+            Value::Tuple(Tuple::new(
+                None,
+                vec![Value::Tuple(Tuple::new(
+                    Some("Nested"),
+                    vec![Value::String("a".into()), Value::UInt(10)],
+                ))],
+            )),
+        )
+    }
+
+    #[test]
+    fn test_option() {
+        assert_scon_value(
+            r#"Some("a")"#,
+            Value::Tuple(Tuple::new(Some("Some"), vec![Value::String("a".into())])),
+        );
+        assert_scon_value(
+            r#"None"#,
+            Value::Tuple(Tuple::new(Some("None"), Vec::new())),
+        );
+    }
+
+    #[test]
+    fn test_char() {
+        assert_scon_value(r#"'c'"#, Value::Char('c'));
+    }
+
+    #[test]
+    fn test_bytes() {
+        assert_scon_value(r#"0x0000"#, Value::Bytes(vec![0u8; 2].into()));
+    }
 }

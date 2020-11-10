@@ -16,13 +16,13 @@ impl Instantiate {
     pub fn instantiate(&self) -> Result<InstantiatedEvent<IndracoreNodeRuntime>, Error> {
         let metadata = match super::load_metadata(&self.metadata) {
             Ok(m) => m,
-            Err(_) => return Err(Error::Other("loading metadata failed".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         };
 
         let transcoder = Transcoder::new(metadata);
         let data = match transcoder.encode(&self.name, &self.args) {
             Ok(m) => m,
-            Err(_) => return Err(Error::Other("encode metadata error".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         };
         async_std::task::block_on(async move {
             let client = match ClientBuilder::<IndracoreNodeRuntime>::new()
@@ -55,20 +55,26 @@ impl Instantiate {
 #[cfg(test)]
 mod test {
     use crate::contract::instantiate::Instantiate;
-    use crate::keyring::parse_code_hash;
-    use sp_keyring::AccountKeyring;
-    use substrate_subxt::{sp_core::sr25519::Pair, IndracoreNodeRuntime, PairSigner};
+    use crate::keyring;
 
     #[test]
     fn test_instantiated() {
-        let pair = AccountKeyring::Alice.pair();
-        let signer = PairSigner::<IndracoreNodeRuntime, Pair>::new(pair);
-        let code_hash =
-            parse_code_hash("0x40f8c7c624d1d8fbd0873a381c63a0858b4d75315bd8ca62e0111068bbf138e3");
+        let code_hash = keyring::parse_code_hash(
+            "0x40f8c7c624d1d8fbd0873a381c63a0858b4d75315bd8ca62e0111068bbf138e3",
+        );
         let metadata =
             "/data/project/indracore-api/indracore_api/src/contract/test/erc20.json".to_string();
+        let mnemonic =
+            "mad deny visa vocal visa badge test cabbage draft base purchase general".to_string();
+
         let mut args: Vec<String> = Vec::new();
         args.push("1_000_000_000".to_string());
+
+        let account = keyring::Sr25519 { suri: mnemonic };
+        let signer = match account.pair(None) {
+            Ok(p) => p,
+            Err(_) => panic!(),
+        };
 
         let inst = Instantiate {
             name: "new".to_string(),

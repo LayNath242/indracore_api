@@ -1,9 +1,28 @@
 use crate::primitives;
 use substrate_subxt::{
     sp_core::{ed25519, sr25519, Pair as TraitPair},
+    sp_runtime,
     system::System,
     Error, IndracoreNodeRuntime, PairSigner,
 };
+
+use std::str::FromStr;
+
+pub fn indracoreid(pubkey: &str) -> Result<primitives::IndracoreId, Error> {
+    let id = sp_runtime::AccountId32::from_str(pubkey);
+    match id {
+        Ok(id) => Ok(pallet_indices::address::Address::from(id)),
+        Err(e) => return Err(Error::Other(e.into())),
+    }
+}
+
+pub fn accounid32(pubkey: &str) -> Result<sp_core::crypto::AccountId32, Error> {
+    let id = sp_runtime::AccountId32::from_str(pubkey);
+    match id {
+        Ok(id) => Ok(id),
+        Err(e) => return Err(Error::Other(e.into())),
+    }
+}
 
 #[derive(PartialEq)]
 pub struct Sr25519 {
@@ -15,7 +34,7 @@ impl Sr25519 {
         let pair = sr25519::Pair::from_string(&self.suri, pass);
         match pair {
             Ok(p) => Ok(PairSigner::<IndracoreNodeRuntime, sr25519::Pair>::new(p)),
-            Err(_) => Err(Error::Other("Invalid account".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         }
     }
 
@@ -23,7 +42,7 @@ impl Sr25519 {
         let pair = sr25519::Pair::from_string(&self.suri, None);
         match pair {
             Ok(data) => Ok(sp_core::crypto::AccountId32::from(data.public())),
-            Err(_) => Err(Error::Other("Invalid account".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         }
     }
 }
@@ -69,13 +88,14 @@ pub fn parse_code_hash(
 
 #[cfg(test)]
 mod test {
-    use crate::keyring::{parse_code_hash, Ed25519, Sr25519};
+    use crate::keyring::{accounid32, indracoreid, parse_code_hash, Ed25519, Sr25519};
     #[test]
     fn test_sr25519() {
         let sig = Sr25519 {
             suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
         };
-        assert!(sig.pair(None).is_ok())
+        assert!(sig.pair(None).is_ok());
+        assert!(sig.to_accountid().is_ok())
     }
     #[test]
     fn test_ed25519() {
@@ -83,7 +103,8 @@ mod test {
             suri: "0x0d782a1f150ff7eadd1a4fa0ec3e0a46d77ba89c86ac5d4ce6ddfdc9d54e5beb".into(),
         };
 
-        assert!(sig.pair(None).is_ok())
+        assert!(sig.pair(None).is_ok());
+        assert!(sig.to_accountid().is_ok())
     }
 
     #[test]
@@ -98,5 +119,13 @@ mod test {
             parse_code_hash("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d")
                 .is_ok()
         )
+    }
+
+    #[test]
+    fn test_id() {
+        let pubkey = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+
+        assert!(indracoreid(pubkey).is_ok());
+        assert!(accounid32(pubkey).is_ok())
     }
 }

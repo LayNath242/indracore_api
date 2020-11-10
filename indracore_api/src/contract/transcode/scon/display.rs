@@ -32,6 +32,7 @@ impl<'a> Debug for DisplayValue<'a> {
             Value::String(string) => <String as Display>::fmt(string, f),
             Value::Seq(seq) => <DisplaySeq as Debug>::fmt(&DisplaySeq(seq), f),
             Value::Bytes(bytes) => <Bytes as Debug>::fmt(bytes, f),
+            Value::Literal(literal) => <String as Display>::fmt(literal, f),
             Value::Unit => write!(f, "()"),
         }
     }
@@ -107,5 +108,30 @@ impl LowerHex for Bytes {
         } else {
             write!(f, "{}", hex::encode(&self.bytes))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_map() {
+        let map = Value::Map(Map::new(
+            Some("M"),
+            vec![(Value::String("a".into()), Value::UInt(1))]
+                .into_iter()
+                .collect(),
+        ));
+        assert_eq!(
+            r#"M { a: 1 }"#,
+            format!("{}", map),
+            "non-alternate same line"
+        );
+        assert_eq!(
+            "M {\n    a: 1,\n}",
+            format!("{:#}", map),
+            "alternate indented (pretty)"
+        );
     }
 }

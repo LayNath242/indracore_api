@@ -8,18 +8,18 @@ pub struct ContractDeploy {
 use substrate_subxt::{contracts::*, ClientBuilder, Error, IndracoreNodeRuntime};
 
 impl ContractDeploy {
-    pub fn load_contract(&self) -> Result<Vec<u8>, Error> {
+    fn load_contract(&self) -> Result<Vec<u8>, Error> {
         let contract_wasm_path = self.wasm_path.clone();
         let mut data: Vec<u8> = Vec::new();
 
         let file = fs::File::open(&contract_wasm_path);
         let mut file = match file {
             Ok(f) => f,
-            Err(_) => return Err(Error::Other("File not exit".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         };
         match file.read_to_end(&mut data) {
             Ok(_) => Ok(data),
-            Err(_) => Err(Error::Other("File Cannot be read".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         }
     }
 

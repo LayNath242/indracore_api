@@ -9,6 +9,8 @@ pub type Ed25519 = PairSigner<IndracoreNodeRuntime, ed25519::Pair>;
 
 pub type Client = substrate_subxt::Client<IndracoreNodeRuntime>;
 
+pub type IndracoreId = pallet_indices::address::Address<sp_core::crypto::AccountId32, u32>;
+
 pub fn url() -> String {
     dotenv::dotenv().expect("!!! Failed to read .env file");
     let url = env::var("RPC");

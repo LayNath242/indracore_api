@@ -25,7 +25,10 @@ impl ContractDeploy {
 
     ///put contract code to indracoe chain
     pub fn exec(&self) -> Result<sp_core::H256, Error> {
-        let code = self.load_contract().unwrap();
+        let code = match self.load_contract() {
+            Ok(code) => code,
+            Err(e) => return Err(e),
+        };
 
         async_std::task::block_on(async move {
             let client = match ClientBuilder::<IndracoreNodeRuntime>::new()

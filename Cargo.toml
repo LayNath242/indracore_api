@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "test_api"
+    ""
 ]
 
 [profile.release]

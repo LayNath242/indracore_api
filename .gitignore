@@ -1,4 +1,6 @@
 /target
 **/*.rs.bk
 Cargo.lock
-/test_api
+/dbs
+stack.yml
+.env

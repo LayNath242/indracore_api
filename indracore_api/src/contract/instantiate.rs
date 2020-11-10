@@ -16,13 +16,13 @@ impl Instantiate {
     pub fn instantiate(&self) -> Result<InstantiatedEvent<IndracoreNodeRuntime>, Error> {
         let metadata = match super::load_metadata(&self.metadata) {
             Ok(m) => m,
-            Err(_) => return Err(Error::Other("loading metadata failed".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         };
 
         let transcoder = Transcoder::new(metadata);
         let data = match transcoder.encode(&self.name, &self.args) {
             Ok(m) => m,
-            Err(_) => return Err(Error::Other("encode metadata error".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         };
         async_std::task::block_on(async move {
             let client = match ClientBuilder::<IndracoreNodeRuntime>::new()

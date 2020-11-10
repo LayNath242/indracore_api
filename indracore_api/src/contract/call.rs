@@ -12,7 +12,7 @@ pub struct ContarctCall {
     pub signer: primitives::Sr25519,
     pub value: <IndracoreNodeRuntime as Balances>::Balance,
     pub gas_limit: u64,
-    pub address: <IndracoreNodeRuntime as System>::Address,
+    pub contract: <IndracoreNodeRuntime as System>::Address,
 }
 
 impl ContarctCall {
@@ -28,7 +28,7 @@ impl ContarctCall {
         let extrinsic_success = client
             .call_and_watch(
                 &self.signer,
-                &self.address,
+                &self.contract,
                 self.value,
                 self.gas_limit,
                 &data,
@@ -40,13 +40,13 @@ impl ContarctCall {
     pub fn run(&self) -> Result<ExtrinsicSuccess<IndracoreNodeRuntime>, Error> {
         let metadata = match super::load_metadata(&self.metadata) {
             Ok(m) => m,
-            Err(_) => return Err(Error::Other("loading metadata failed".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         };
 
         let transcoder = Transcoder::new(metadata);
         let data = match transcoder.encode(&self.name, &self.args) {
             Ok(m) => m,
-            Err(_) => return Err(Error::Other("encode metadata error".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         };
         let result = async_std::task::block_on(self.call(data))?;
 

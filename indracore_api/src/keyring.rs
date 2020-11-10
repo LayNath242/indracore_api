@@ -8,25 +8,19 @@ use substrate_subxt::{
 
 use std::str::FromStr;
 
-pub struct PublicId {
-    pubkey: String,
+pub fn indracoreid(pubkey: &str) -> Result<primitives::IndracoreId, Error> {
+    let id = sp_runtime::AccountId32::from_str(pubkey);
+    match id {
+        Ok(id) => Ok(pallet_indices::address::Address::from(id)),
+        Err(e) => return Err(Error::Other(e.into())),
+    }
 }
 
-impl PublicId {
-    pub fn indracoreid(&self) -> Result<primitives::IndracoreId, Error> {
-        let id = sp_runtime::AccountId32::from_str(&self.pubkey);
-        match id {
-            Ok(id) => Ok(pallet_indices::address::Address::from(id)),
-            Err(e) => return Err(Error::Other(e.into())),
-        }
-    }
-
-    pub fn accounid32(&self) -> Result<sp_core::crypto::AccountId32, Error> {
-        let id = sp_runtime::AccountId32::from_str(&self.pubkey);
-        match id {
-            Ok(id) => Ok(id),
-            Err(e) => return Err(Error::Other(e.into())),
-        }
+pub fn accounid32(pubkey: &str) -> Result<sp_core::crypto::AccountId32, Error> {
+    let id = sp_runtime::AccountId32::from_str(pubkey);
+    match id {
+        Ok(id) => Ok(id),
+        Err(e) => return Err(Error::Other(e.into())),
     }
 }
 
@@ -40,7 +34,7 @@ impl Sr25519 {
         let pair = sr25519::Pair::from_string(&self.suri, pass);
         match pair {
             Ok(p) => Ok(PairSigner::<IndracoreNodeRuntime, sr25519::Pair>::new(p)),
-            Err(_) => Err(Error::Other("Invalid account".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         }
     }
 
@@ -48,7 +42,7 @@ impl Sr25519 {
         let pair = sr25519::Pair::from_string(&self.suri, None);
         match pair {
             Ok(data) => Ok(sp_core::crypto::AccountId32::from(data.public())),
-            Err(_) => Err(Error::Other("Invalid account".into())),
+            Err(e) => return Err(Error::Other(format!("{:?}", e))),
         }
     }
 }
@@ -94,7 +88,7 @@ pub fn parse_code_hash(
 
 #[cfg(test)]
 mod test {
-    use crate::keyring::{parse_code_hash, Ed25519, PublicId, Sr25519};
+    use crate::keyring::{accounid32, indracoreid, parse_code_hash, Ed25519, Sr25519};
     #[test]
     fn test_sr25519() {
         let sig = Sr25519 {
@@ -129,11 +123,9 @@ mod test {
 
     #[test]
     fn test_id() {
-        let id = PublicId {
-            pubkey: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY".into(),
-        };
+        let pubkey = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
 
-        assert!(id.indracoreid().is_ok());
-        assert!(id.accounid32().is_ok())
+        assert!(indracoreid(pubkey).is_ok());
+        assert!(accounid32(pubkey).is_ok())
     }
 }
